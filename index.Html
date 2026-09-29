@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>To-Do List</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9eef0;--card:#fbfcfc;--ink:#14263a;--mute:#6b7c8c;--line:#d3dde2;--acc:#f0a81c;--accink:#14263a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a26;--card:#172536;--ink:#e8eef3;--mute:#8fa1b1;--line:#263a4f;--acc:#f3b83f;--accink:#0f1a26}}
+:root[data-theme="dark"]{--bg:#0f1a26;--card:#172536;--ink:#e8eef3;--mute:#8fa1b1;--line:#263a4f;--acc:#f3b83f;--accink:#0f1a26}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;justify-content:center;padding:32px 16px}
+main{width:100%;max-width:560px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px}
+h1{font-size:2.4rem;font-weight:800;letter-spacing:-.03em;margin:0}
+#left{color:var(--mute);font-size:.95rem}
+form{display:flex;gap:8px;margin-bottom:16px}
+input[type=text]{flex:1;min-width:0;font:inherit;font-size:1rem;padding:14px 16px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)}
+input[type=text]:focus{outline:none;border-color:var(--ink)}
+button{font:inherit;cursor:pointer}
+.add{padding:0 22px;border:0;border-radius:12px;background:var(--acc);color:var(--accink);font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tabs button{border:0;background:none;color:var(--mute);padding:6px 12px;border-radius:8px;font-weight:600}
+.tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+ul{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px;border:1px solid var(--line);overflow:hidden}
+li{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+li:last-child{border-bottom:0}
+.chk{width:24px;height:24px;flex:none;border:2px solid var(--mute);border-radius:50%;background:none;display:grid;place-items:center;padding:0;color:var(--accink)}
+li.done .chk{background:var(--acc);border-color:var(--acc)}
+.chk svg{width:14px;height:14px;opacity:0}
+li.done .chk svg{opacity:1}
+.txt{flex:1;min-width:0;overflow-wrap:anywhere;cursor:text}
+li.done .txt{color:var(--mute);text-decoration:line-through}
+.edit{flex:1;font:inherit;padding:4px 8px;border:2px solid var(--ink);border-radius:8px;background:var(--bg);color:var(--ink)}
+.del{border:0;background:none;color:var(--mute);font-size:1.3rem;line-height:1;padding:4px 8px;border-radius:8px}
+.del:hover{color:var(--ink)}
+.empty{padding:28px 16px;text-align:center;color:var(--mute)}
+footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--mute);font-size:.9rem}
+.clear{border:0;background:none;color:var(--mute);text-decoration:underline;padding:4px}
+.clear:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+  <header><h1>To do</h1><span id="left" aria-live="polite"></span></header>
+  <form id="f"><input type="text" id="in" placeholder="Add a task" aria-label="New task" autocomplete="off" maxlength="200"><button class="add" type="submit">Add task</button></form>
+  <div class="tabs" role="group" aria-label="Filter tasks">
+    <button data-f="all" aria-pressed="true">All</button>
+    <button data-f="active" aria-pressed="false">Active</button>
+    <button data-f="done" aria-pressed="false">Done</button>
+  </div>
+  <ul id="list"></ul>
+  <footer><span>Click a task to edit it.</span><button class="clear" id="clr">Clear completed</button></footer>
+</main>
+<script>
+(function(){
+  var KEY="todo-items-v1", items=[], filter="all", editing=null;
+  try{ var s=localStorage.getItem(KEY); if(s) items=JSON.parse(s)||[]; }catch(e){}
+  if(!Array.isArray(items)) items=[];
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(items)); }catch(e){} }
+  var list=document.getElementById("list"), left=document.getElementById("left"), inp=document.getElementById("in");
+  var tick='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg>';
+  function render(){
+    var n=items.filter(function(i){return !i.done}).length;
+    left.textContent=n+(n===1?" task left":" tasks left");
+    var vis=items.filter(function(i){return filter==="all"||(filter==="done")===i.done});
+    list.innerHTML="";
+    if(!vis.length){
+      var li=document.createElement("li"); li.className="empty";
+      li.style.justifyContent="center";
+      li.textContent=filter==="done"?"No completed tasks yet.":filter==="active"?"Nothing left to do.":"No tasks yet. Add your first one above.";
+      list.appendChild(li); return;
+    }
+    vis.forEach(function(it){
+      var li=document.createElement("li"); if(it.done) li.className="done";
+      var c=document.createElement("button"); c.className="chk"; c.innerHTML=tick;
+      c.setAttribute("aria-label",(it.done?"Mark not done: ":"Mark done: ")+it.text);
+      c.onclick=function(){ it.done=!it.done; save(); render(); };
+      li.appendChild(c);
+      if(editing===it.id){
+        var e=document.createElement("input"); e.className="edit"; e.value=it.text; e.maxLength=200;
+        e.setAttribute("aria-label","Edit task");
+        var fin=function(ok){ if(editing!==it.id) return; var v=e.value.trim(); if(ok&&v) it.text=v; editing=null; save(); render(); };
+        e.onkeydown=function(ev){ if(ev.key==="Enter") fin(true); if(ev.key==="Escape") fin(false); };
+        e.onblur=function(){ fin(true); };
+        li.appendChild(e); list.appendChild(li); e.focus(); return;
+      }
+      var t=document.createElement("span"); t.className="txt"; t.textContent=it.text;
+      t.onclick=function(){ editing=it.id; render(); };
+      var d=document.createElement("button"); d.className="del"; d.innerHTML="&times;";
+      d.setAttribute("aria-label","Delete task: "+it.text);
+      d.onclick=function(){ items=items.filter(function(x){return x!==it}); save(); render(); };
+      li.appendChild(t); li.appendChild(d); list.appendChild(li);
+    });
+  }
+  document.getElementById("f").onsubmit=function(ev){
+    ev.preventDefault(); var v=inp.value.trim(); if(!v) return;
+    items.unshift({id:Date.now()+Math.random(),text:v,done:false});
+    inp.value=""; save(); render();
+  };
+  document.querySelectorAll(".tabs button").forEach(function(b){
+    b.onclick=function(){
+      filter=b.dataset.f;
+      document.querySelectorAll(".tabs button").forEach(function(x){x.setAttribute("aria-pressed",x===b)});
+      render();
+    };
+  });
+  document.getElementById("clr").onclick=function(){ items=items.filter(function(i){return !i.done}); save(); render(); };
+  render();
+})();
+</script>
+</body>
+</html>
